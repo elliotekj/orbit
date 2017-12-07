@@ -29,60 +29,28 @@ class OrbitUtilities
 end
 
 class OrbitDB
-  attr_accessor :src_path, :content, :categories, :output_path
+  attr_accessor :src_path, :posts, :categories, :output_path
 
   def initialize(src_path, output_path = nil)
-    self.content = []
+    self.posts = []
     self.categories = []
     self.src_path = src_path
     self.output_path = output_path
   end
 
   def build
-    read_all_content
-    sort_content_by_date
+    read_all_posts(src_path)
+    sort_posts_by_date
 
     {
-      'content' => content,
+      'posts' => posts,
       'categories' => categories.uniq!
     }
   end
 
   private
 
-  def read_all_content
-    sections = read_content_sections
-
-    sections.each do |section|
-      walk_section(section['path'], section)
-    end
-  end
-
-  def read_content_sections
-    sections = []
-    sections_path = File.join(src_path, '/content')
-
-    Dir.foreach(sections_path) do |section|
-      next if section =~ /^\.+$/ # Filter out `.` and `..`
-      next if section =~ /^[\.]/ # Filter out hidden files
-
-      # TODO: Don't hard-filter these out, add an option or something:
-      next if section == 'images' || section == 'wp-content'
-
-      full_section_path = File.join(sections_path, section)
-
-      if File.directory? full_section_path
-        sections.push(
-          'name' => section,
-          'path' => full_section_path
-        )
-      end
-    end
-
-    sections
-  end
-
-  def walk_section(path, section)
+  def read_all_posts(path)
     Dir.foreach(path) do |path_item|
       next if path_item =~ /^\.+$/ # Filter out `.` and `..`
       next if path_item =~ /^[\.]/ # Filter out hidden files
@@ -90,54 +58,51 @@ class OrbitDB
       full_path = File.join(path, path_item)
 
       if File.directory? full_path
-        walk_section(full_path, section)
+        read_all_posts(full_path)
       elsif File.file? full_path
         next unless path_item =~ /^.+(md|markdown|txt)$/
 
-        single_content = OrbitContent.new(full_path, section['name']).build
+        single_content = Post.new(full_path).build
 
         next if single_content.nil?
 
-        content.push(single_content)
+        posts.push(single_content)
         categories.concat(single_content['categories'])
       end
     end
   end
 
-  def sort_content_by_date
-    content.sort_by { |hash| hash['dateCreated'].to_s }.reverse!
+  def sort_posts_by_date
+    posts.sort_by { |hash| hash['dateCreated'].to_s }.reverse!
   end
 end
 
-class OrbitContent
-  attr_accessor :path, :section_name
+class Post
+  attr_accessor :path
 
-  def initialize(path, section_name)
+  def initialize(path)
     self.path = path
-    self.section_name = section_name
   end
 
   def build
     file_contents = read_file_contents(path)
     frontmatter = read_frontmatter(file_contents)
     return if frontmatter.empty?
-    description = file_contents[frontmatter.length+7..-1] # +7 because we stripped out "---\n---"
+    post_body = file_contents[frontmatter.length+7..-1] # +7 because we stripped out "---\n---"
     frontmatter = YAML.load(frontmatter)
 
-    # Filter out posts without a datetime:
+    # Filter posts without a date:
     return unless frontmatter.key?('date')
 
     # Ref: https://codex.wordpress.org/XML-RPC_MetaWeblog_API
     {
       'postid' => path,
       'title' => frontmatter['title'] || '',
-      'description' => description.strip!,
+      'description' => post_body.strip!,
       'dateCreated' => frontmatter['date'],
       'categories' => frontmatter['categories'] || [],
-      'post_status' => read_post_status(frontmatter),
-      'custom_fields' => {
-        'section' => section_name
-      }
+      'tags' => frontmatter['tags'] || [],
+      'custom_fields' => {}
     }
   end
 
@@ -152,12 +117,6 @@ class OrbitContent
 
     return '' unless frontmatter
     frontmatter[1]
-  end
-
-  def read_post_status(frontmatter)
-    # Ref: https://codex.wordpress.org/Post_Status_Transitions
-    return 'publish' unless frontmatter.key?('draft') && frontmatter['draft'] == true
-    return 'draft'
   end
 end
 
@@ -207,7 +166,7 @@ end
 
 puts 'Starting Orbit…'
 
-db = OrbitDB.new('/Users/elliot/dev/elliotekj-com-hugo', '')
+db = OrbitDB.new('/Users/elliot/Google Drive/Documents/elliotekj.com/post', '')
 meta_weblog = MetaWeblogAPI.new(db)
 
 servlet = XMLRPC::WEBrickServlet.new
