@@ -49,7 +49,7 @@ class OrbitDB
   end
 
   def build
-    read_all_posts(@src_path)
+    read_all_posts(File.join(@src_path, 'post'))
     sort_posts_by_date
     make_categories_unique
 
@@ -128,6 +128,22 @@ class Post
     }
   end
 
+  def self.create(base_path)
+    now = Time.now.to_datetime.rfc3339
+    filename = format('%04d-%02d-%02d-%02d-%02d-%02d', now.year, now.month, now.day, now.hour, now.minute, now.second)
+    path = File.join(base_path, 'post', filename)
+
+    post = {
+      'postid' => path,
+      'title' => frontmatter['title'] || '',
+      'description' => post_body.strip!,
+      'link' => frontmatter['link'] || '',
+      'dateCreated' => now,
+      'categories' => frontmatter['categories'] || [],
+      'otherFrontmatter' => other_frontmatter || [],
+    }
+  end
+
   def self.update(post, struct)
     unless FileTest.exist?(post['postid'])
       raise XMLRPC::FaultException.new(0, 'Post doesn’t exist')
@@ -185,8 +201,9 @@ class MetaWeblogAPI
   # | Posts
   # +--------------------------------------------------------------------------+
 
-  def newPost(blog_id, _, _, struct, publish)
-    ''
+  def newPost(blog_id, _, _, struct, _)
+    post = Post.create(struct)
+    post['postid']
   end
 
   def getPost(post_id, _, _)
@@ -221,7 +238,7 @@ puts 'Starting Orbit…'
 
 token = 'e1b22248-f2b7-4009-bfd0-2ceb743075b9'
 
-db = OrbitDB.new('/Users/elliot/Desktop/post', '').build
+db = OrbitDB.new('/Users/elliot/Desktop/elliotekj.com', '').build
 metaWeblog_api = MetaWeblogAPI.new(db)
 
 servlet = OrbitServlet.new(token)
