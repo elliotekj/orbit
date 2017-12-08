@@ -9,6 +9,7 @@
 # - https://github.com/stevenschobert/inkplate
 # - https://codex.wordpress.org/XML-RPC_MetaWeblog_API
 # - https://web.archive.org/web/20051103060716/http://www.xmlrpc.com:80/spec
+# - https://codex.wordpress.org/XML-RPC_WordPress_API
 
 # Imports
 
@@ -29,7 +30,7 @@ class OrbitUtilities
 end
 
 class OrbitDB
-  attr_accessor :src_path, :posts, :categories, :output_path
+  attr_accessor :posts, :categories, :src_path, :output_path
 
   def initialize(src_path, output_path = nil)
     self.posts = []
@@ -40,11 +41,12 @@ class OrbitDB
 
   def build
     read_all_posts(src_path)
-    sort_posts_by_date
+    self.posts = sort_posts_by_date(posts)
+    self.categories = process_categories(categories)
 
     {
       'posts' => posts,
-      'categories' => categories.uniq!
+      'categories' => categories
     }
   end
 
@@ -72,8 +74,13 @@ class OrbitDB
     end
   end
 
-  def sort_posts_by_date
+  def sort_posts_by_date(posts)
     posts.sort_by { |hash| hash['dateCreated'].to_s }.reverse!
+    posts
+  end
+
+  def process_categories(categories)
+    categories.uniq
   end
 end
 
@@ -94,15 +101,14 @@ class Post
     # Filter posts without a date:
     return unless frontmatter.key?('date')
 
-    # Ref: https://codex.wordpress.org/XML-RPC_MetaWeblog_API
+    # https://codex.wordpress.org/XML-RPC_MetaWeblog_API
     {
       'postid' => path,
       'title' => frontmatter['title'] || '',
       'description' => post_body.strip!,
+      'link' => frontmatter['link'] || '',
       'dateCreated' => frontmatter['date'],
-      'categories' => frontmatter['categories'] || [],
-      'tags' => frontmatter['tags'] || [],
-      'custom_fields' => {}
+      'categories' => frontmatter['categories'] || []
     }
   end
 
@@ -124,11 +130,11 @@ class MetaWeblogAPI
   attr_accessor :db
 
   def initialize(db)
-    self.db = db.build
+    self.db = db
   end
 
   # +--------------------------------------------------------------------------+
-  # | MetaWeblog API
+  # | Posts
   # +--------------------------------------------------------------------------+
 
   def newPost(blog_id, username, password, struct, publish)
@@ -149,28 +155,29 @@ class MetaWeblogAPI
     true
   end
 
-  def getCategories(_blog_id, _username, _password)
-    # OrbitUtilities.check_auth(username, password)
+  def getRecentPosts(_, username, password, post_count)
+    db['posts'][0, post_count.to_i]
+  end
 
+  # +--------------------------------------------------------------------------+
+  # | Categories
+  # +--------------------------------------------------------------------------+
+
+  def getCategories(_, username, password)
     db['categories']
   end
-
-  def getRecentPosts(_blog_id, _username, _password, post_count)
-    # OrbitUtilities.check_auth(username, password)
-
-    db['content'][0..post_count]
-  end
 end
+
 
 # ---
 
 puts 'Starting Orbit…'
 
-db = OrbitDB.new('/Users/elliot/Google Drive/Documents/elliotekj.com/post', '')
-meta_weblog = MetaWeblogAPI.new(db)
+db = OrbitDB.new('/Users/elliot/Google Drive/Documents/elliotekj.com/post', '').build
+metaWeblog_api = MetaWeblogAPI.new(db)
 
 servlet = XMLRPC::WEBrickServlet.new
-servlet.add_handler('metaWeblog', meta_weblog)
+servlet.add_handler('metaWeblog', metaWeblog_api)
 
 # --
 
