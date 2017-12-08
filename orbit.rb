@@ -49,11 +49,12 @@ class OrbitDB
   end
 
   def build
-    read_all_posts(File.join(@src_path, 'post'))
+    read_all_posts(File.join(@src_path, 'content/post'))
     sort_posts_by_date
     make_categories_unique
 
     {
+      'src_path' => @src_path,
       'posts' => @posts,
       'categories' => @categories
     }
@@ -113,7 +114,7 @@ class Post
       next if key == 'date_modified'
       next if key == 'categories'
 
-      other_frontmatter.push( key => value )
+      other_frontmatter.push(key => value)
     end
 
     # https://codex.wordpress.org/XML-RPC_MetaWeblog_API
@@ -124,24 +125,27 @@ class Post
       'link' => frontmatter['link'] || '',
       'dateCreated' => frontmatter['date'],
       'categories' => frontmatter['categories'] || [],
-      'otherFrontmatter' => other_frontmatter || [],
+      'otherFrontmatter' => other_frontmatter || []
     }
   end
 
-  def self.create(base_path)
-    now = Time.now.to_datetime.rfc3339
-    filename = format('%04d-%02d-%02d-%02d-%02d-%02d', now.year, now.month, now.day, now.hour, now.minute, now.second)
-    path = File.join(base_path, 'post', filename)
+  def self.create(base_path, struct)
+    now = DateTime.now
+    filename = now.strftime('%Y-%m-%d-%H-%M-%S.md')
+    path = File.join(base_path, 'content/post', filename)
 
     post = {
       'postid' => path,
-      'title' => frontmatter['title'] || '',
-      'description' => post_body.strip!,
-      'link' => frontmatter['link'] || '',
-      'dateCreated' => now,
-      'categories' => frontmatter['categories'] || [],
-      'otherFrontmatter' => other_frontmatter || [],
+      'title' => struct['title'] || '',
+      'description' => struct['description'] || '',
+      'link' => struct['link'] || '',
+      'dateCreated' => now.rfc3339.to_s,
+      'categories' => struct['categories'] || [],
+      'otherFrontmatter' => []
     }
+
+    write(post)
+    post
   end
 
   def self.update(post, struct)
@@ -161,16 +165,24 @@ class Post
     dir_structure = File.dirname(post['postid'])
     FileUtils.mkpath(post['postid']) unless File.exist?(dir_structure)
 
+    if post['dateCreated'].class == Time
+      date_created = post['dateCreated'].to_datetime.rfc3339 # because YAML
+    else
+      date_created = post['dateCreated']
+    end
+
     File.open(post['postid'], 'w') do |file|
       file.truncate(0) # Empty the file
 
       file.write("---\n")
       file.write("title: #{post['title']}\n")
       file.write("link: #{post['link']}\n") unless post['link'] == ''
-      file.write("date: #{post['dateCreated'].to_datetime.rfc3339}\n")
+      file.write("date: #{date_created}\n")
       file.write("date_modified: #{Time.now.to_datetime.rfc3339}\n")
       file.write("categories: #{post['categories']}\n")
-      post['otherFrontmatter'].each { |hash| file.write("#{hash.keys[0]}: #{hash.values[0]}\n") }
+      post['otherFrontmatter'].each do |hash|
+        file.write("#{hash.keys[0]}: #{hash.values[0]}\n")
+      end
       file.write("---\n\n")
       file.write(post['description'])
     end
@@ -201,8 +213,9 @@ class MetaWeblogAPI
   # | Posts
   # +--------------------------------------------------------------------------+
 
-  def newPost(blog_id, _, _, struct, _)
-    post = Post.create(struct)
+  def newPost(_, _, _, struct, _)
+    post = Post.create(db['src_path'], struct)
+    db['posts'].unshift(post)
     post['postid']
   end
 
@@ -238,7 +251,7 @@ puts 'Starting Orbit…'
 
 token = 'e1b22248-f2b7-4009-bfd0-2ceb743075b9'
 
-db = OrbitDB.new('/Users/elliot/Desktop/elliotekj.com', '').build
+db = OrbitDB.new('/Users/elliot/Desktop/elliotekj-com-hugo', '').build
 metaWeblog_api = MetaWeblogAPI.new(db)
 
 servlet = OrbitServlet.new(token)
