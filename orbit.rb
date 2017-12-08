@@ -22,24 +22,39 @@ require 'yaml'
 require 'webrick'
 require 'xmlrpc/server'
 
-class OrbitDB
-  attr_accessor :posts, :categories, :src_path, :output_path
+class OrbitServlet < XMLRPC::WEBrickServlet
+  attr_accessor :token
 
+  def initialize(token)
+    super()
+
+    @token = token
+  end
+
+  def service(req, res)
+    params = CGI.parse(req.query_string)
+    raise XMLRPC::FaultException.new(0, 'Login invalid') unless params['token'][0] == @token
+
+    super
+  end
+end
+
+class OrbitDB
   def initialize(src_path, output_path = nil)
-    self.posts = []
-    self.categories = []
-    self.src_path = src_path
-    self.output_path = output_path
+    @posts = []
+    @categories = []
+    @src_path = src_path
+    @output_path = output_path
   end
 
   def build
-    read_all_posts(src_path)
-    self.posts = sort_posts_by_date(posts)
-    self.categories = process_categories(categories)
+    read_all_posts(@src_path)
+    sort_posts_by_date
+    make_categories_unique
 
     {
-      'posts' => posts,
-      'categories' => categories
+      'posts' => @posts,
+      'categories' => @categories
     }
   end
 
@@ -61,19 +76,20 @@ class OrbitDB
 
         next if single_content.nil?
 
-        posts.push(single_content)
-        categories.concat(single_content['categories'])
+        @posts.push(single_content)
+        @categories.concat(single_content['categories'])
       end
     end
   end
 
-  def sort_posts_by_date(posts)
-    posts.sort_by { |hash| hash['dateCreated'].to_s }.reverse!
-    posts
+  def sort_posts_by_date
+    @posts.compact!
+    @posts.sort_by! { |hash| hash['dateCreated'].strftime('%s').to_i }
+    @posts.reverse!
   end
 
-  def process_categories(categories)
-    categories.uniq
+  def make_categories_unique
+    @categories.uniq!
   end
 end
 
@@ -143,6 +159,7 @@ class MetaWeblogAPI
   end
 
   def getRecentPosts(_, _, _, post_count)
+    return db['posts'] if post_count > db['posts'].length
     db['posts'][0, post_count.to_i]
   end
 
@@ -155,30 +172,13 @@ class MetaWeblogAPI
   end
 end
 
-class OrbitServlet < XMLRPC::WEBrickServlet
-  attr_accessor :token
-
-  def initialize(token)
-    super()
-
-    self.token = token
-  end
-
-  def service(req, res)
-    params = CGI.parse(req.query_string)
-    raise XMLRPC::FaultException.new(0, 'Login invalid') unless params['token'][0] == token
-
-    super
-  end
-end
-
 # ---
 
 puts 'Starting Orbit…'
 
 token = 'e1b22248-f2b7-4009-bfd0-2ceb743075b9'
 
-db = OrbitDB.new('/Users/elliot/Google Drive/Documents/elliotekj.com/post', '').build
+db = OrbitDB.new('/Users/elliot/Desktop/post', '').build
 metaWeblog_api = MetaWeblogAPI.new(db)
 
 servlet = OrbitServlet.new(token)
@@ -186,29 +186,29 @@ servlet.add_handler('metaWeblog', metaWeblog_api)
 
 # --
 
-servlet.set_service_hook do |obj, *args|
-  name = (obj.respond_to? :name) ? obj.name : obj.to_s
-  STDERR.puts "calling #{name}(#{args.map{|a| a.inspect}.join(", ")})"
-  begin
-    ret = obj.call(*args)  # call the original service-method
-    STDERR.puts "   #{name} returned " + ret.inspect[0,2000]
+# servlet.set_service_hook do |obj, *args|
+#   name = (obj.respond_to? :name) ? obj.name : obj.to_s
+#   STDERR.puts "calling #{name}(#{args.map{|a| a.inspect}.join(", ")})"
+#   begin
+#     ret = obj.call(*args)  # call the original service-method
+#     STDERR.puts "   #{name} returned " + ret.inspect[0,2000]
 
-    if ret.inspect.match(/[^\"]nil[^\"]/)
-      STDERR.puts "found a nil in " + ret.inspect
-    end
-    ret
-  rescue
-    STDERR.puts "  #{name} call exploded"
-    STDERR.puts $!
-    STDERR.puts $!.backtrace
-    raise XMLRPC::FaultException.new(-99, "error calling #{name}: #{$!}")
-  end
-end
+#     if ret.inspect.match(/[^\"]nil[^\"]/)
+#       STDERR.puts "found a nil in " + ret.inspect
+#     end
+#     ret
+#   rescue
+#     STDERR.puts "  #{name} call exploded"
+#     STDERR.puts $!
+#     STDERR.puts $!.backtrace
+#     raise XMLRPC::FaultException.new(-99, "error calling #{name}: #{$!}")
+#   end
+# end
 
-servlet.set_default_handler do |name, *args|
-  STDERR.puts "** tried to call missing method #{name}( #{args.inspect} )"
-  raise XMLRPC::FaultException.new(-99, "Method #{name} missing or wrong number of parameters!")
-end
+# servlet.set_default_handler do |name, *args|
+#   STDERR.puts "** tried to call missing method #{name}( #{args.inspect} )"
+#   raise XMLRPC::FaultException.new(-99, "Method #{name} missing or wrong number of parameters!")
+# end
 
 # --
 
