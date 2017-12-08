@@ -16,11 +16,12 @@
 require 'rubygems'
 require 'bundler/setup'
 
-require 'date'
 require 'CGI'
-require 'yaml'
+require 'date'
+require 'fileutils'
 require 'webrick'
 require 'xmlrpc/server'
+require 'yaml'
 
 class OrbitServlet < XMLRPC::WEBrickServlet
   attr_accessor :token
@@ -72,7 +73,7 @@ class OrbitDB
       elsif File.file? full_path
         next unless path_item =~ /^.+(md|markdown|txt)$/
 
-        single_content = Post.new(full_path).build
+        single_content = Post.parse(full_path)
 
         next if single_content.nil?
 
@@ -94,13 +95,7 @@ class OrbitDB
 end
 
 class Post
-  attr_accessor :path
-
-  def initialize(path)
-    self.path = path
-  end
-
-  def build
+  def self.parse(path)
     file_contents = read_file_contents(path)
     frontmatter = read_frontmatter(file_contents)
     return if frontmatter.empty?
@@ -110,6 +105,17 @@ class Post
     # Filter posts without a date:
     return unless frontmatter.key?('date')
 
+    other_frontmatter = []
+    frontmatter.each do |key, value|
+      next if key == 'title'
+      next if key == 'link'
+      next if key == 'date'
+      next if key == 'date_modified'
+      next if key == 'categories'
+
+      other_frontmatter.push( key => value )
+    end
+
     # https://codex.wordpress.org/XML-RPC_MetaWeblog_API
     {
       'postid' => path,
@@ -117,17 +123,50 @@ class Post
       'description' => post_body.strip!,
       'link' => frontmatter['link'] || '',
       'dateCreated' => frontmatter['date'],
-      'categories' => frontmatter['categories'] || []
+      'categories' => frontmatter['categories'] || [],
+      'otherFrontmatter' => other_frontmatter || [],
     }
   end
 
-  private
+  def self.update(post, struct)
+    unless FileTest.exist?(post['postid'])
+      raise XMLRPC::FaultException.new(0, 'Post doesn’t exist')
+    end
 
-  def read_file_contents(path)
+    post['title'] = struct['title'] || ''
+    post['description'] = struct['description'] || ''
+    post['link'] = struct['link'] || ''
+    post['categories'] = struct['categories'] || ''
+
+    write(post)
+  end
+
+  def self.write(post)
+    dir_structure = File.dirname(post['postid'])
+    FileUtils.mkpath(post['postid']) unless File.exist?(dir_structure)
+
+    File.open(post['postid'], 'w') do |file|
+      file.truncate(0) # Empty the file
+
+      file.write("---\n")
+      file.write("title: #{post['title']}\n")
+      file.write("link: #{post['link']}\n") unless post['link'] == ''
+      file.write("date: #{post['dateCreated'].to_datetime.rfc3339}\n")
+      file.write("date_modified: #{Time.now.to_datetime.rfc3339}\n")
+      file.write("categories: #{post['categories']}\n")
+      post['otherFrontmatter'].each { |hash| file.write("#{hash.keys[0]}: #{hash.values[0]}\n") }
+      file.write("---\n\n")
+      file.write(post['description'])
+    end
+
+    true
+  end
+
+  def self.read_file_contents(path)
     File.read(path)
   end
 
-  def read_frontmatter(contents)
+  def self.read_frontmatter(contents)
     frontmatter = contents.match(/\A---(.+)\n---/m)
 
     return '' unless frontmatter
@@ -150,15 +189,16 @@ class MetaWeblogAPI
     ''
   end
 
-  def getPost(post_id, _, _password)
+  def getPost(post_id, _, _)
     db['posts'].each do |p|
       next unless p['postid'] == post_id
       return p
     end
   end
 
-  def editPost(post_id, _, _, _struct, _publish)
-    true
+  def editPost(post_id, _, _, struct, _publish)
+    post = getPost(post_id, _, _)
+    Post.update(post, struct)
   end
 
   def getRecentPosts(_, _, _, post_count)
