@@ -150,8 +150,11 @@ class MetaWeblogAPI
     ''
   end
 
-  def getPost(_post_id, _, _password)
-    {}
+  def getPost(post_id, _, _password)
+    db['posts'].each do |p|
+      next unless p['postid'] == post_id
+      return p
+    end
   end
 
   def editPost(post_id, _, _, _struct, _publish)
