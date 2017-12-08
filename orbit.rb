@@ -163,7 +163,7 @@ class Post
 
   def self.write(post)
     dir_structure = File.dirname(post['postid'])
-    FileUtils.mkpath(post['postid']) unless File.exist?(dir_structure)
+    FileUtils.mkpath(dir_structure) unless File.exist?(dir_structure)
 
     if post['dateCreated'].class == Time
       date_created = post['dateCreated'].to_datetime.rfc3339 # because YAML
@@ -199,6 +199,21 @@ class Post
 
     return '' unless frontmatter
     frontmatter[1]
+  end
+end
+
+class Media
+  def self.save(base_path, name, date)
+    ymd_structure = DateTime.now.strftime('%Y/%m/%d')
+    dir_structure = File.join(base_path, 'content/images', ymd_structure)
+    FileUtils.mkpath(dir_structure) unless File.exist?(dir_structure)
+    file_path = File.join(dir_structure, name)
+
+    File.open(file_path, 'w') do |file|
+      file.write(date)
+    end
+
+    '/images/' + ymd_structure + '/' + name
   end
 end
 
@@ -242,6 +257,18 @@ class MetaWeblogAPI
 
   def getCategories(_, _, _)
     db['categories']
+  end
+
+  # +--------------------------------------------------------------------------+
+  # | Media
+  # +--------------------------------------------------------------------------+
+
+  def newMediaObject(_, _, _, data)
+    path = Media.save(db['src_path'], data['name'], data['bits'])
+
+    {
+      'url' => path
+    }
   end
 end
 
