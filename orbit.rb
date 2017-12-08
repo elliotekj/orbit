@@ -17,17 +17,10 @@ require 'rubygems'
 require 'bundler/setup'
 
 require 'date'
+require 'CGI'
 require 'yaml'
 require 'webrick'
 require 'xmlrpc/server'
-
-class OrbitUtilities
-  def self.check_auth(username, password)
-    if username != 'admin' || password != admin
-      raise XMLRPC::FaultException.new(0, 'Login invalid')
-    end
-  end
-end
 
 class OrbitDB
   attr_accessor :posts, :categories, :src_path, :output_path
@@ -137,25 +130,19 @@ class MetaWeblogAPI
   # | Posts
   # +--------------------------------------------------------------------------+
 
-  def newPost(blog_id, username, password, struct, publish)
-    # OrbitUtilities.check_auth(username, password)
-
+  def newPost(blog_id, _, _, struct, publish)
     ''
   end
 
-  def getPost(_post_id, _username, _password)
-    # OrbitUtilities.check_auth(username, password)
-
+  def getPost(_post_id, _, _password)
     {}
   end
 
-  def editPost(post_id, _username, _password, _struct, _publish)
-    # OrbitUtilities.check_auth(username, password)
-
+  def editPost(post_id, _, _, _struct, _publish)
     true
   end
 
-  def getRecentPosts(_, username, password, post_count)
+  def getRecentPosts(_, _, _, post_count)
     db['posts'][0, post_count.to_i]
   end
 
@@ -163,20 +150,38 @@ class MetaWeblogAPI
   # | Categories
   # +--------------------------------------------------------------------------+
 
-  def getCategories(_, username, password)
+  def getCategories(_, _, _)
     db['categories']
   end
 end
 
+class OrbitServlet < XMLRPC::WEBrickServlet
+  attr_accessor :token
+
+  def initialize(token)
+    super()
+
+    self.token = token
+  end
+
+  def service(req, res)
+    params = CGI.parse(req.query_string)
+    raise XMLRPC::FaultException.new(0, 'Login invalid') unless params['token'][0] == token
+
+    super
+  end
+end
 
 # ---
 
 puts 'Starting Orbit…'
 
+token = 'e1b22248-f2b7-4009-bfd0-2ceb743075b9'
+
 db = OrbitDB.new('/Users/elliot/Google Drive/Documents/elliotekj.com/post', '').build
 metaWeblog_api = MetaWeblogAPI.new(db)
 
-servlet = XMLRPC::WEBrickServlet.new
+servlet = OrbitServlet.new(token)
 servlet.add_handler('metaWeblog', metaWeblog_api)
 
 # --
