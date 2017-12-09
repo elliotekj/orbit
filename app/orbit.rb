@@ -15,10 +15,11 @@ token = 'e1b22248-f2b7-4009-bfd0-2ceb743075b9'
 
 db = OrbitDB.new('/Users/elliot/Desktop/elliotekj-com-hugo')
 metaWeblog_api = MetaWeblogAPI.new(db)
-blogger_api = BloggerAPI.new
+blogger_api = BloggerAPI.new(db)
 
 servlet = OrbitServlet.new(token)
 servlet.add_handler('metaWeblog', metaWeblog_api)
+servlet.add_handler('blogger', blogger_api)
 
 server = WEBrick::HTTPServer.new(:Port => 4040)
 server.mount('/xmlrpc.php', servlet)

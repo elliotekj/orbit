@@ -97,6 +97,10 @@ class Post
     true
   end
 
+  def self.delete(path)
+    FileUtils.rm(path) if File.exist?(path)
+  end
+
   def self.read_file_contents(path)
     File.read(path)
   end
