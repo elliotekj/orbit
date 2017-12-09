@@ -11,7 +11,9 @@ class OrbitServlet < XMLRPC::WEBrickServlet
 
   def service(req, res)
     params = CGI.parse(req.query_string)
-    raise XMLRPC::FaultException.new(0, 'Login invalid') unless params['token'][0] == @token
+    unless params['token'][0] == @token
+      raise XMLRPC::FaultException.new(0, 'Token invalid')
+    end
 
     super
   end
