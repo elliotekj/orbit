@@ -10,6 +10,7 @@ class OrbitDB
 
     read_all_posts(File.join(@src_path, 'content/post'))
     sort_posts_by_date
+    @categories.unshift('[Orbit - Draft]')
     make_categories_unique
   end
 

@@ -14,10 +14,4 @@ class BloggerAPI
     @db.posts.delete_if { |post| post['postid'] == post_id }
     true
   end
-
-  # def getUserInfo(app_id, username, password)
-  #   STDOUT.puts(app_id)
-  #   STDOUT.puts(username)
-  #   STDOUT.puts(password)
-  # end
 end
