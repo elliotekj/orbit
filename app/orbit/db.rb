@@ -1,23 +1,16 @@
 require_relative 'post.rb'
 
 class OrbitDB
-  def initialize(src_path, output_path = nil)
+  attr_accessor :posts, :categories, :src_path
+
+  def initialize(src_path)
     @posts = []
     @categories = []
     @src_path = src_path
-    @output_path = output_path
-  end
 
-  def build
     read_all_posts(File.join(@src_path, 'content/post'))
     sort_posts_by_date
     make_categories_unique
-
-    {
-      'src_path' => @src_path,
-      'posts' => @posts,
-      'categories' => @categories
-    }
   end
 
   private

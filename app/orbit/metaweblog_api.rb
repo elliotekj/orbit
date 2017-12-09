@@ -2,10 +2,8 @@ require_relative 'post.rb'
 require_relative 'media.rb'
 
 class MetaWeblogAPI
-  attr_accessor :db
-
   def initialize(db)
-    self.db = db
+    @db = db
   end
 
   # +--------------------------------------------------------------------------+
@@ -13,13 +11,13 @@ class MetaWeblogAPI
   # +--------------------------------------------------------------------------+
 
   def newPost(_, _, _, struct, _)
-    post = Post.create(db['src_path'], struct)
-    db['posts'].unshift(post)
+    post = Post.create(@db.src_path, struct)
+    @db.posts.unshift(post)
     post['postid']
   end
 
   def getPost(post_id, _, _)
-    db['posts'].each do |p|
+    @db.posts.each do |p|
       next unless p['postid'] == post_id
       return p
     end
@@ -31,8 +29,8 @@ class MetaWeblogAPI
   end
 
   def getRecentPosts(_, _, _, post_count)
-    return db['posts'] if post_count > db['posts'].length
-    db['posts'][0, post_count.to_i]
+    return @db.posts if post_count > @db.posts.length
+    @db.posts[0, post_count.to_i]
   end
 
   # +--------------------------------------------------------------------------+
@@ -40,7 +38,7 @@ class MetaWeblogAPI
   # +--------------------------------------------------------------------------+
 
   def getCategories(_, _, _)
-    db['categories']
+    @db.categories
   end
 
   # +--------------------------------------------------------------------------+
@@ -48,7 +46,7 @@ class MetaWeblogAPI
   # +--------------------------------------------------------------------------+
 
   def newMediaObject(_, _, _, data)
-    path = Media.save(db['src_path'], data['name'], data['bits'])
+    path = Media.save(@db.src_path, data['name'], data['bits'])
 
     {
       'url' => path

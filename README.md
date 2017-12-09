@@ -8,3 +8,4 @@
 - https://codex.wordpress.org/XML-RPC_MetaWeblog_API
 - https://web.archive.org/web/20051103060716/http://www.xmlrpc.com:80/spec
 - https://codex.wordpress.org/XML-RPC_WordPress_API
+- http://www2.cipd.co.uk/pm/peoplemanagement/b/weblog/metablog.ashx
