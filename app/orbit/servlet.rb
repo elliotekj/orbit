@@ -1,4 +1,4 @@
-require 'CGI'
+require 'cgi'
 
 class OrbitServlet < XMLRPC::WEBrickServlet
   attr_accessor :token
