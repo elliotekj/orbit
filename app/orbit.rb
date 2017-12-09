@@ -20,13 +20,13 @@ puts "And the content folder the posts you want serve live in (e.g. 'post' if yo
 options['content_folder'] = gets.chomp
 puts "And the token you would like to use to secure access to the endpoint?\n"
 options['token'] = gets.chomp
+puts "And a command to run when your site is updated? (tip: Use this to auto-regenerate your site)\n"
+options['update_command'] = gets.chomp
 puts '🕐  Thanks, Orbit is setting up…'
 
-puts options
-
 db = OrbitDB.new(options)
-metaweblog_api = MetaWeblogAPI.new(db)
-blogger_api = BloggerAPI.new(db)
+metaweblog_api = MetaWeblogAPI.new(db, options['update_command'])
+blogger_api = BloggerAPI.new(db, options['update_command'])
 
 servlet = OrbitServlet.new(options['token'])
 servlet.add_handler('metaWeblog', metaweblog_api)

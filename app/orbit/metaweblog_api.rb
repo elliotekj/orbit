@@ -2,8 +2,9 @@ require_relative 'post.rb'
 require_relative 'media.rb'
 
 class MetaWeblogAPI
-  def initialize(db)
+  def initialize(db, user_passed_update_cmd)
     @db = db
+    @user_passed_update_cmd = user_passed_update_cmd
   end
 
   # +--------------------------------------------------------------------------+
@@ -13,6 +14,7 @@ class MetaWeblogAPI
   def newPost(_, _, _, metaweblog_struct, _)
     post = Post.create(@db.src_path, metaweblog_struct)
     @db.posts.unshift(post)
+    system(@user_passed_update_cmd)
     post['postid']
   end
 
@@ -35,6 +37,7 @@ class MetaWeblogAPI
     body = post.delete('description')
     Post.write(post_id, post, body)
 
+    system(@user_passed_update_cmd)
     post_id
   end
 
@@ -58,6 +61,7 @@ class MetaWeblogAPI
   def newMediaObject(_, _, _, data)
     path = Media.save(@db.src_path, data['name'], data['bits'])
 
+    system(@user_passed_update_cmd)
     {
       'url' => path
     }

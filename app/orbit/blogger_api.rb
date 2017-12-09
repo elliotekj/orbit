@@ -1,8 +1,9 @@
 require_relative 'post.rb'
 
 class BloggerAPI
-  def initialize(db)
+  def initialize(db, user_passed_update_cmd)
     @db = db
+    @user_passed_update_cmd = user_passed_update_cmd
   end
 
   # +--------------------------------------------------------------------------+
@@ -12,6 +13,7 @@ class BloggerAPI
   def deletePost(_, post_id, _, _, _)
     Post.delete(post_id)
     @db.posts.delete_if { |post| post['postid'] == post_id }
+    system(@user_passed_update_cmd)
     true
   end
 end
