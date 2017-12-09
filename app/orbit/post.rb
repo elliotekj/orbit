@@ -1,16 +1,163 @@
 require 'date'
 require 'fileutils'
-require'time'
+require 'time'
 require 'yaml'
 
 class Post
-  def self.parse(path)
-    file_contents = read_file_contents(path)
-    frontmatter = read_frontmatter(file_contents)
-    return if frontmatter.empty?
-    post_body = file_contents[frontmatter.length+7..-1] # +7 because we stripped out "---\n---"
-    frontmatter = YAML.load(frontmatter)
+  # Public: Get a post from its path.
+  #
+  # path - The path String to the post
+  #
+  # Returns a MetaWeblog compatible hash.
+  def self.get(path)
+    p = read(path)
+    frontmatter, body = parse(p)
+    return nil if frontmatter.nil? || body.nil?
 
+    post_hash = process_frontmatter(frontmatter)
+    post_hash['postid'] = path
+    post_hash['description'] = body
+
+    post_hash
+  end
+
+  # Public: Create a post.
+  #
+  # path - The path String where the post will be written
+  # metaweblog_struct - The post data hash
+  #
+  # Returns a post Hash.
+  def self.create(path, metaweblog_struct)
+    now = DateTime.now
+    filename = now.strftime('%Y-%m-%d-%H-%M-%S.md')
+
+    post_id = File.join(base_path, 'content/post', filename)
+    body = struct['description'] || ''
+    frontmatter = {
+      'title' => struct['title'] || '',
+      'link' => struct['link'] || '',
+      'dateCreated' => now.rfc3339,
+      'categories' => struct['categories'] || []
+    }
+
+    write(post_id, frontmatter, body)
+    get(post_id)
+  end
+
+  def self.merge_metaweblog_struct(post, metaweblog_struct)
+    unless FileTest.exist?(post['postid'])
+      raise XMLRPC::FaultException.new(0, 'Post doesn’t exist')
+    end
+
+    post['title'] = metaweblog_struct['title'] || ''
+    post['description'] = metaweblog_struct['description'] || ''
+    post['link'] = metaweblog_struct['link'] || ''
+    if post['categories'].include?('[Orbit - Draft]')
+      post['dateCreated'] = Time.now.to_datetime.rfc3339
+    end
+    post['categories'] = metaweblog_struct['categories'] || []
+
+    post
+  end
+
+  def self.write(post_id, frontmatter, body)
+    dir_structure = File.dirname(post_id)
+    FileUtils.mkpath(dir_structure) unless File.exist?(dir_structure)
+
+    # We'll handle inserting these ourselves:
+    date_created = frontmatter.delete('dateCreated') if frontmatter.key?('dateCreated')
+    date_modified = frontmatter.delete('date_modified') if frontmatter.key?('date_modified')
+
+    # Remove the `postid`:
+    frontmatter.delete('postid') if frontmatter.key?('postid')
+
+    # Merge `otherFrontmatter` into the `frontmatter`:
+    if frontmatter.key?('otherFrontmatter')
+      other_frontmatter = frontmatter.delete('otherFrontmatter')
+      frontmatter = frontmatter.merge(other_frontmatter.reduce({}, :update))
+    end
+
+    # Set a post's draft status:
+    if frontmatter['categories'].include?('[Orbit - Draft]')
+      date_created = nil
+      date_modified = nil
+      frontmatter['draft'] = true
+      frontmatter['categories'] -= ['[Orbit - Draft]']
+    else
+      frontmatter.delete('draft') if frontmatter.key?('draft')
+      date_modified = Time.now.to_datetime.rfc3339
+    end
+
+
+    File.open(post_id, 'w') do |file|
+      file.truncate(0) # Empty the file
+
+      file.write(frontmatter.to_yaml)
+      file.write("date: #{date_created}\n") unless date_created == nil
+      file.write("date_modified: #{date_created}\n") unless date_modified == nil
+      file.write("---\n\n")
+      file.write(body)
+    end
+  end
+
+  def self.delete(path)
+    FileUtils.rm(path) if File.exist?(path)
+  end
+
+  # Private: Read the contents of a post path.
+  #
+  # path - The path to read
+  #
+  # Returns the post as a String.
+  def self.read(path)
+    File.read(path)
+  end
+
+  # Private: Parse the contents of a post file.
+  #
+  # post_string - The String to parse
+  #
+  # Returns an Array composed of the frontmatter and body.
+  def self.parse(post_string)
+    frontmatter = read_frontmatter(post_string)
+    return nil if frontmatter.nil?
+    body = read_body(post_string)
+    return nil if body.nil?
+
+    [frontmatter, body]
+  end
+
+  # Private: Find the frontmatter in a post and parse it as YAML.
+  #
+  # post_string - The String to search
+  #
+  # Returns the frontmatter as YAML or nil if no frontmatter is found.
+  def self.read_frontmatter(post_string)
+    frontmatter = post_string.match(/\A---\n((.|\n)+)\n---/)
+    return nil unless frontmatter
+    YAML.load(frontmatter[1])
+  end
+
+  # Private: Find the body of a post.
+  #
+  # post_string - The String to search
+  #
+  # Returns the body as a String or nil.
+  def self.read_body(post_string)
+    frontmatter = post_string.match(/\A---(.+)\n---/m)
+    return nil unless frontmatter
+    frontmatter_char_count = frontmatter[1].length
+    frontmatter_char_count += 7 # The len of "---\n---"
+    body = post_string[frontmatter_char_count..-1]
+    body.strip!
+  end
+
+  # Private: Separate the frontmatter that MetaWeblog doesn't handle so that we don't lose it.
+  #
+  # frontmatter - The YAML to process
+  #
+  # Returns a Hash with the processed frontmatter.
+  def self.process_frontmatter(frontmatter)
     # Load draft posts with a special category:
     categories = frontmatter['categories'] || []
     if frontmatter.key?('draft') && frontmatter['draft'] == true
@@ -30,128 +177,12 @@ class Post
       other_frontmatter.push(key => value)
     end
 
-    # https://codex.wordpress.org/XML-RPC_MetaWeblog_API
-    # [1] Because YAML parses `rfc3339` as a Time
     {
-      'postid' => path,
       'title' => frontmatter['title'] || '',
-      'description' => post_body.strip!,
       'link' => frontmatter['link'] || '',
-      'dateCreated' => frontmatter['date'] || Time.parse(DateTime.now.rfc3339.to_s), #[1]
+      'dateCreated' => frontmatter['date'] || Time.parse(DateTime.now.rfc3339.to_s),
       'categories' => categories,
       'otherFrontmatter' => other_frontmatter || []
     }
-
-  end
-
-  def self.create(base_path, struct)
-    now = DateTime.now
-    filename = now.strftime('%Y-%m-%d-%H-%M-%S.md')
-    path = File.join(base_path, 'content/post', filename)
-
-    post = {
-      'postid' => path,
-      'title' => struct['title'] || '',
-      'description' => struct['description'] || '',
-      'link' => struct['link'] || '',
-      'dateCreated' => now.rfc3339,
-      'categories' => struct['categories'] || [],
-      'otherFrontmatter' => []
-    }
-
-    write(post, true)
-    post
-  end
-
-  def self.update(post, struct)
-    unless FileTest.exist?(post['postid'])
-      raise XMLRPC::FaultException.new(0, 'Post doesn’t exist')
-    end
-
-    was_draft = false
-
-    STDOUT.puts("\n\nUP IN\n\n")
-    STDOUT.puts(struct)
-    STDOUT.puts("\n\n")
-
-    post['title'] = struct['title'] || ''
-    post['description'] = struct['description'] || ''
-    post['link'] = struct['link'] || ''
-    if post['categories'].include?('[Orbit - Draft]')
-      was_draft = true
-      post['dateCreated'] = Time.now.to_datetime.rfc3339
-    end
-    post['categories'] = struct['categories'] || []
-
-    STDOUT.puts("\n\nUP OUT\n\n")
-    STDOUT.puts(post)
-    STDOUT.puts("\n\n")
-
-    [post, was_draft]
-  end
-
-  def self.write(post, was_draft)
-    dir_structure = File.dirname(post['postid'])
-    FileUtils.mkpath(dir_structure) unless File.exist?(dir_structure)
-
-    if post['dateCreated'].class == Time
-      date_created = post['dateCreated'].to_datetime.rfc3339 # because YAML
-    else
-      date_created = post['dateCreated']
-    end
-
-    File.open(post['postid'], 'w') do |file|
-      file.truncate(0) # Empty the file
-
-      file.write("---\n")
-      file.write("title: #{post['title']}\n") unless post['title'] == ''
-      file.write("link: #{post['link']}\n") unless post['link'] == ''
-
-      if post['categories'].include?('[Orbit - Draft]')
-        file.write("draft: true\n")
-        post['categories'] -= ['[Orbit - Draft]']
-      else
-        file.write("date: #{date_created}\n")
-        file.write("date_modified: #{Time.now.to_datetime.rfc3339}\n") unless was_draft
-      end
-
-      file.write("categories: #{post['categories']}\n") unless post['categories'] == []
-      post['otherFrontmatter'].each do |hash|
-        file.write("#{hash.keys[0]}: #{hash.values[0]}\n")
-      end
-      file.write("---\n\n")
-      file.write(post['description'])
-    end
-
-    true
-  end
-
-  def self.delete(path)
-    FileUtils.rm(path) if File.exist?(path)
-  end
-
-  def self.find(post_id, db)
-    p = {}
-
-    db.posts.each do |post|
-      next unless post['postid'] == post_id
-      return post
-    end
-
-    STDOUT.puts("\n\nFIND\n\n")
-    STDOUT.puts(p)
-    STDOUT.puts("\n\n")
-    p
-  end
-
-  def self.read_file_contents(path)
-    File.read(path)
-  end
-
-  def self.read_frontmatter(contents)
-    frontmatter = contents.match(/\A---(.+)\n---/m)
-
-    return '' unless frontmatter
-    frontmatter[1]
   end
 end

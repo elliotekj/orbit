@@ -10,27 +10,32 @@ class MetaWeblogAPI
   # | Posts
   # +--------------------------------------------------------------------------+
 
-  def newPost(_, _, _, struct, _)
-    post = Post.create(@db.src_path, struct)
+  def newPost(_, _, _, metaweblog_struct, _)
+    post = Post.create(@db.src_path, metaweblog_struct)
     @db.posts.unshift(post)
     post['postid']
   end
 
   def getPost(post_id, _, _)
-    Post.find(post_id, @db)
+    Post.get(post_id)
   end
 
-  def editPost(post_id, _, _, struct, _publish)
-    post = getPost(post_id, _, _)
+  def editPost(post_id, _, _, metaweblog_struct, _publish)
+    post = Post.get(post_id)
+    post = Post.merge_metaweblog_struct(post, metaweblog_struct)
 
-    updated_post, was_draft = Post.update(post, struct)
-    db_post_index = @db.posts.index do |p|
-      p['postid'] == updated_post['postid']
+    @db.posts.map! do |p|
+      if p['postid'] == post['postid']
+        post
+      else
+        p
+      end
     end
-    @db.posts[db_post_index] = updated_post
 
-    Post.write(updated_post, was_draft)
-    updated_post['postid']
+    body = post.delete('description')
+    Post.write(post_id, post, body)
+
+    post_id
   end
 
   def getRecentPosts(_, _, _, post_count)

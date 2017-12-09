@@ -8,15 +8,26 @@ class OrbitDB
     @categories = []
     @src_path = src_path
 
-    read_all_posts(File.join(@src_path, 'content/post'))
-    sort_posts_by_date
-    @categories.unshift('[Orbit - Draft]')
-    make_categories_unique
+    build_posts_db(File.join(@src_path, 'content/post'))
+    build_categories_db
   end
 
   private
 
-  def read_all_posts(path)
+  def build_posts_db(path)
+    walk_post_path(path)
+
+    @posts.compact!
+    @posts.sort_by! { |hash| hash['dateCreated'].strftime('%s').to_i }
+    @posts.reverse!
+  end
+
+  def build_categories_db
+    @categories.unshift('[Orbit - Draft]')
+    @categories.uniq!
+  end
+
+  def walk_post_path(path)
     Dir.foreach(path) do |path_item|
       next if path_item =~ /^\.+$/ # Filter out `.` and `..`
       next if path_item =~ /^[\.]/ # Filter out hidden files
@@ -24,27 +35,16 @@ class OrbitDB
       full_path = File.join(path, path_item)
 
       if File.directory? full_path
-        read_all_posts(full_path)
+        build_posts_db(full_path)
       elsif File.file? full_path
         next unless path_item =~ /^.+(md|markdown|txt)$/
 
-        single_content = Post.parse(full_path)
+        post = Post.get(full_path)
+        next if post.nil?
 
-        next if single_content.nil?
-
-        @posts.push(single_content)
-        @categories.concat(single_content['categories'])
+        @posts.push(post)
+        @categories.concat(post['categories'])
       end
     end
-  end
-
-  def sort_posts_by_date
-    @posts.compact!
-    @posts.sort_by! { |hash| hash['dateCreated'].strftime('%s').to_i }
-    @posts.reverse!
-  end
-
-  def make_categories_unique
-    @categories.uniq!
   end
 end
