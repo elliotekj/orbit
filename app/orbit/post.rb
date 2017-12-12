@@ -31,13 +31,13 @@ class Post
     now = DateTime.now
     filename = now.strftime('%Y-%m-%d-%H-%M-%S.md')
 
-    post_id = File.join(base_path, 'content/post', filename)
-    body = struct['description'] || ''
+    post_id = File.join(path, filename)
+    body = metaweblog_struct['description'] || ''
     frontmatter = {
-      'title' => struct['title'] || '',
-      'link' => struct['link'] || '',
+      'title' => metaweblog_struct['title'] || '',
+      'link' => metaweblog_struct['link'] || '',
       'dateCreated' => now.rfc3339,
-      'categories' => struct['categories'] || []
+      'categories' => metaweblog_struct['categories'] || []
     }
 
     write(post_id, frontmatter, body)

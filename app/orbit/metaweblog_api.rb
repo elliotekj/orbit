@@ -12,9 +12,9 @@ class MetaWeblogAPI
   # +--------------------------------------------------------------------------+
 
   def newPost(_, _, _, metaweblog_struct, _)
-    post = Post.create(@db.src_path, metaweblog_struct)
+    post = Post.create(File.join(@db.src_path, "content/#{@db.content_folder}"), metaweblog_struct)
     @db.posts.unshift(post)
-    system(@user_passed_update_cmd)
+    system(@user_passed_update_cmd) unless @user_passed_update_cmd.nil?
     post['postid']
   end
 
@@ -37,7 +37,7 @@ class MetaWeblogAPI
     body = post.delete('description')
     Post.write(post_id, post, body)
 
-    system(@user_passed_update_cmd)
+    system(@user_passed_update_cmd) unless @user_passed_update_cmd.nil?
     post_id
   end
 
@@ -61,7 +61,7 @@ class MetaWeblogAPI
   def newMediaObject(_, _, _, data)
     path = Media.save(@db.src_path, data['name'], data['bits'])
 
-    system(@user_passed_update_cmd)
+    system(@user_passed_update_cmd) unless @user_passed_update_cmd.nil?
     {
       'url' => path
     }

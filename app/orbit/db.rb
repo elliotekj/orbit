@@ -1,14 +1,15 @@
 require_relative 'post.rb'
 
 class OrbitDB
-  attr_accessor :posts, :categories, :src_path
+  attr_accessor :posts, :categories, :src_path, :content_folder
 
   def initialize(options)
     @posts = []
     @categories = []
     @src_path = options['src_path']
+    @content_folder = options['content_folder']
 
-    build_posts_db(File.join(@src_path, "content/#{options['content_folder']}"))
+    build_posts_db(File.join(@src_path, "content/#{@content_folder}"))
     build_categories_db
   end
 
