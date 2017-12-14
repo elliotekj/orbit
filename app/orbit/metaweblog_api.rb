@@ -42,8 +42,7 @@ class MetaWeblogAPI
   end
 
   def getRecentPosts(_, _, _, post_count)
-    return @db.posts if post_count > @db.posts.length
-    @db.posts[0, post_count.to_i]
+    @db.fetch_first(post_count)
   end
 
   # +--------------------------------------------------------------------------+

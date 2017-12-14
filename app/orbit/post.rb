@@ -4,6 +4,19 @@ require 'time'
 require 'yaml'
 
 class Post
+  # Public: Get a post's frontmatter from its path.
+  #
+  # path - The path String to the post
+  #
+  # Returns a Hash of the frontmatter.
+  def self.get_frontmatter(path)
+    p = read(path)
+    frontmatter, = parse(p)
+    return nil if frontmatter.nil?
+
+    process_frontmatter(frontmatter)
+  end
+
   # Public: Get a post from its path.
   #
   # path - The path String to the post
