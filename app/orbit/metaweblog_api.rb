@@ -7,6 +7,12 @@ class MetaWeblogAPI
     @user_passed_update_cmd = user_passed_update_cmd
   end
 
+  def run_user_cmd
+    Thread.new do
+      system(@user_passed_update_cmd) unless @user_passed_update_cmd.nil?
+    end
+  end
+
   # +--------------------------------------------------------------------------+
   # | Posts
   # +--------------------------------------------------------------------------+
@@ -14,7 +20,8 @@ class MetaWeblogAPI
   def newPost(_, _, _, metaweblog_struct, _)
     post = Post.create(@db.content_path, metaweblog_struct)
     @db.refresh_post_paths
-    system(@user_passed_update_cmd) unless @user_passed_update_cmd.nil?
+
+    run_user_cmd
     post['postid']
   end
 
@@ -31,7 +38,7 @@ class MetaWeblogAPI
 
     @db.refresh_post_paths
 
-    system(@user_passed_update_cmd) unless @user_passed_update_cmd.nil?
+    run_user_cmd
     post_id
   end
 
@@ -54,7 +61,7 @@ class MetaWeblogAPI
   def newMediaObject(_, _, _, data)
     path = Media.save(@db.src_path, data['name'], data['bits'])
 
-    system(@user_passed_update_cmd) unless @user_passed_update_cmd.nil?
+    run_user_cmd
     {
       'url' => path
     }
