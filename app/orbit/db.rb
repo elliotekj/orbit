@@ -1,14 +1,14 @@
 require_relative 'post.rb'
 
 class OrbitDB
-  attr_accessor :posts, :categories, :src_path, :content_folder
+  attr_accessor :categories, :src_path, :content_path
 
   def initialize(options)
+    @src_path = options['src_path']
     @content_path = File.join(options['src_path'], "content/#{options['content_folder']}")
     @post_minimal_metadata = []
     @categories = []
   end
-
 
   # Public: Gets all of the data for the first `n` paths in @post_minimal_metadata.
   #
@@ -32,13 +32,14 @@ class OrbitDB
     metaweblog_hashes
   end
 
-  private
-
-  # Private: Rebuild the `post_minimal_metadata` array.
+  # Public: Rebuild the `post_minimal_metadata` array.
   def refresh_post_paths
     @post_minimal_metadata = []
+    @categories = []
     gather_post_minimal_metadata(@content_path)
   end
+
+  private
 
   # Private: Sets `@post_minimal_metadata`.
   #

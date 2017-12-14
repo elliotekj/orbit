@@ -12,8 +12,8 @@ class MetaWeblogAPI
   # +--------------------------------------------------------------------------+
 
   def newPost(_, _, _, metaweblog_struct, _)
-    post = Post.create(File.join(@db.src_path, "content/#{@db.content_folder}"), metaweblog_struct)
-    @db.posts.unshift(post)
+    post = Post.create(@db.content_path, metaweblog_struct)
+    @db.refresh_post_paths
     system(@user_passed_update_cmd) unless @user_passed_update_cmd.nil?
     post['postid']
   end
@@ -26,16 +26,10 @@ class MetaWeblogAPI
     post = Post.get(post_id)
     post = Post.merge_metaweblog_struct(post, metaweblog_struct)
 
-    @db.posts.map! do |p|
-      if p['postid'] == post['postid']
-        post
-      else
-        p
-      end
-    end
-
     body = post.delete('description')
     Post.write(post_id, post, body)
+
+    @db.refresh_post_paths
 
     system(@user_passed_update_cmd) unless @user_passed_update_cmd.nil?
     post_id
