@@ -15,7 +15,7 @@ built-in token verification so you can safely expose it on your server.
 
 2. `cd` into the folder and run:
 
-```
+```sh
 $ ruby app/orbit.rb -s /YOUR/HUGO/SITE/PATH
 ```
 
@@ -33,7 +33,7 @@ saved in.
 
 Example: The following will save posts sent to port 4041 in the `link` folder.
 
-```
+```sh
 $ ruby app/orbit.rb -s /YOUR/HUGO/SITE/PATH -c link -p 4041
 ```
 
@@ -45,8 +45,14 @@ site with a command passed to the `-u` flag.
 
 Example:
 
-```
+```sh
 $ ruby app/orbit.rb -s /YOUR/HUGO/SITE/PATH -u "cd /YOUR/HUGO/SITE/PATH && hugo"
+```
+
+Tip for [Micro.Blog](https://micro.blog) users: You can use the `-u` flag to ping Micro.Blog whenever you publish a new micropost
+
+```sh
+$ ruby app/orbit.rb -s /YOUR/HUGO/SITE/PATH -u "curl -d 'url=https://YOURSITE.com/microposts.json' -X POST http://micro.blog/ping"
 ```
 
 ## Authentication
@@ -58,7 +64,7 @@ MarsEdit with a `token` parameter.
 
 Example:
 
-```
+```sh
 $ ruby app/orbit.rb -s /YOUR/HUGO/SITE/PATH -t MYSECRETTOKEN
 ```
 
