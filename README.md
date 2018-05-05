@@ -1,11 +1,93 @@
-# Reference material
+# Orbit - A MetaWeblog API Server for Hugo
 
-- http://xmlrpc.scripting.com/metaWeblogApi.html
-- https://cyber.harvard.edu/rss/rss.html#hrelementsOfLtitemgt
-- https://github.com/tominsam/jekyll-metaweblog
-- https://gist.github.com/brentsimmons/9398899
-- https://github.com/stevenschobert/inkplate
-- https://codex.wordpress.org/XML-RPC_MetaWeblog_API
-- https://web.archive.org/web/20051103060716/http://www.xmlrpc.com:80/spec
-- https://codex.wordpress.org/XML-RPC_WordPress_API
-- http://www2.cipd.co.uk/pm/peoplemanagement/b/weblog/metablog.ashx
+Orbit is a MetaWeblog API server for blogs powered by
+[Hugo](https://gohugo.io). It was written so that I could write and publish to
+my [blog](https://elliotekj.com) from
+[MarsEdit](https://www.red-sweater.com/marsedit/). It supports draft posts (not
+a MetaWeblog standard) and MarsEdit's drag & drop image insertion. It also has
+built-in token verification so you can safely expose it on your server.
+
+**Jump to:** [Basic Usage](https://github.com/elliotekj/orbit#basic-usage) | [Post Types](https://github.com/elliotekj/orbit#post-types) | [Update Command](https://github.com/elliotekj/orbit#update-command) | [Authentication](https://github.com/elliotekj/orbit#authentication) | [Draft Posts](https://github.com/elliotekj/orbit#draft-posts)| [All Options](https://github.com/elliotekj/orbit#all-options)
+
+## Basic Usage
+
+1. [Download Orbit](https://github.com/elliotekj/orbit/archive/master.zip)
+
+2. `cd` into the folder and run:
+
+```
+$ ruby app/orbit.rb -s /YOUR/HUGO/SITE/PATH
+```
+
+3. Configure MarsEdit:
+
+![MarsEdit configuration](https://github.com/elliotekj/orbit/blob/master/.README/marsedit.png)
+
+
+## Post Types
+
+If your blog, like mine, has multiple post types (e.g. link posts, regular
+posts, and microposts), you can still use Orbit. When starting Orbit, the `-c`
+flag allows you to you can specify the folder within `content` the post will be
+saved in.
+
+Example: The following will save posts sent to port 4041 in the `link` folder.
+
+```
+$ ruby app/orbit.rb -s /YOUR/HUGO/SITE/PATH -c link -p 4041
+```
+
+## Update Command
+
+If you don't want to have `hugo server` constantly running to watch for changes
+(for example if you're running Orbit on your server), you can regenerate your
+site with a command passed to the `-u` flag.
+
+Example:
+
+```
+$ ruby app/orbit.rb -s /YOUR/HUGO/SITE/PATH -u "cd /YOUR/HUGO/SITE/PATH && hugo"
+```
+
+## Authentication
+
+If you want to expose Orbit on your server (which is how I use Orbit), you'll
+want to take advantage of the built-in token verification. When starting Orbit,
+pass some secret token to the `-t` flag and update the `API Endpoint URL` in
+MarsEdit with a `token` parameter.
+
+Example:
+
+```
+$ ruby app/orbit.rb -s /YOUR/HUGO/SITE/PATH -t MYSECRETTOKEN
+```
+
+Then in MarsEdit, if your endpoint was, for example,
+`https://hugo.elliotekj.com/xmlrpc` you'd update it to
+`https://hugo.elliotekj.com/xmlrpc?token=MYSECRETTOKEN`.
+
+## Draft Posts
+
+Draft posts aren't a MetaWeblog standard. Orbit works around this by adding
+a `[Orbit - Draft]` category to the category list. If you use that category
+then when saving your post, `draft` will be set to true in the post's
+frontmatter.
+
+## All Options
+
+- `-s PATH` `--src-path PATH`: Path to your Hugo site (required)
+- `-c FOLDER_NAME` `--content-folder FOLDER_NAME`: Name of the folder in `/content` you want Orbit to serve (default: 'post')
+- `-p PORT` `--port PORT`: Port to run Orbit on (default: 4040)
+- `-t TOKEN` `--token TOKEN`: Token used for authenticating yourself (optional)
+- `-u COMMAND` `--update-command COMMAND`: Command run when your site is updated (optional)
+
+## License
+
+Orbit is released under the MIT [`LICENSE`](https://github.com/elliotekj/orbit/blob/master/LICENSE).
+
+## About
+
+This crate was written by [Elliot Jackson](https://elliotekj.com).
+
+- Blog: [https://elliotekj.com](https://elliotekj.com)
+- Email: elliot@elliotekj.com
