@@ -1,5 +1,7 @@
 # Orbit - A MetaWeblog API Server for Hugo
 
+![](https://github.com/elliotekj/orbit/blob/master/.README/demo.gif)
+
 Orbit is a MetaWeblog API server for blogs powered by
 [Hugo](https://gohugo.io). It was written so that I could write and publish to
 my [blog](https://elliotekj.com) from
@@ -8,6 +10,7 @@ a MetaWeblog standard) and MarsEdit's drag & drop image insertion. It also has
 built-in token verification so you can safely expose it on your server.
 
 **Jump to:** [Basic Usage](https://github.com/elliotekj/orbit#basic-usage) | [Post Types](https://github.com/elliotekj/orbit#post-types) | [Update Command](https://github.com/elliotekj/orbit#update-command) | [Authentication](https://github.com/elliotekj/orbit#authentication) | [Draft Posts](https://github.com/elliotekj/orbit#draft-posts)| [All Options](https://github.com/elliotekj/orbit#all-options)
+
 
 ## Basic Usage
 
