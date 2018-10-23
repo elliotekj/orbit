@@ -90,6 +90,13 @@ frontmatter.
 - `-t TOKEN` `--token TOKEN`: Token used for authenticating yourself (optional)
 - `-u COMMAND` `--update-command COMMAND`: Command run when your site is updated (optional)
 
+## Common Issues
+### MarsEdit won't load any of my old posts
+
+Check that your front matter (the metadata block above each of your raw posts) is in YAML form. If you're not sure which format that is, check the separator between the metadata block, and your actual post. It could be `+++`, `---`, or enclosed in `{` and `}`. 
+
+If it is not the form ending with three dashes, (`---`), you'll need to convert your old posts before continuing. Hugo provides a built-in tool for this: `hugo convert toYAML`
+
 ## License
 
 Orbit is released under the MIT [`LICENSE`](https://github.com/elliotekj/orbit/blob/master/LICENSE).
